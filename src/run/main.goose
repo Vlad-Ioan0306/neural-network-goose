@@ -12,9 +12,13 @@ fn approx(a: f64, b: f64, eps: f64) -> bool {
 	return d < eps;
 }
 
+fn check(name: const u8[:], ok: bool) {
+	if ok { print(name, " - ✓ passed"); }
+	else { print(name, " - ✗ failed"); }
+}
+
 fn main() {
-	print("=== Neural Network Library Demo ===");
-	print("");
+	var failures: i64 = 0;
 
 	// --- 1. Build a weight matrix (2x3) and bias vector (1x2) ---
 	print("Step 1: Create weight matrix and bias vector");
