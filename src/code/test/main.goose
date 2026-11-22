@@ -396,8 +396,8 @@ fn main() {
 	if !approx(dw.data[4], 67.0, 0.0001) { ok = false; }
 	if !approx(dw.data[5], 81.0, 0.0001) { ok = false; }
 	if db.len != 2 { ok = false; }
-	if !approx(db[0], 4.0, 0.0001) { ok = false; }
-	if !approx(db[1], 6.0, 0.0001) { ok = false; }
+	if !approx(db[0], 3.0, 0.0001) { ok = false; }
+	if !approx(db[1], 7.0, 0.0001) { ok = false; }
 	if dx.rows != 3 || dx.cols != 2 { ok = false; }
 	if !approx(dx.data[0], 13.0, 0.0001) { ok = false; }
 	if !approx(dx.data[1], 18.0, 0.0001) { ok = false; }
@@ -471,7 +471,9 @@ fn main() {
 	let smf, smfok = matrix::mat(1, 2, copy(sfdata));
 	if !smfok { ok = false; }
 	let sfok = functions::mat_softmax_rows(smf);
-	if sfok { ok = false; }
+	if !sfok { ok = false; }
+	let ssum = smf.data[0] + smf.data[1];
+	if !approx(ssum, 1.0, 0.0001) { ok = false; }
 	failures += check("softmax underflow should fail", ok);
 
 	// --- mat_save / mat_load ---

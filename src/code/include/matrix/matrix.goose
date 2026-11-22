@@ -317,17 +317,18 @@ fn mat_load(path: const u8[:]) -> Mat, bool {
 // --- dense backward ---------------------------------------------------------
 
 // dense_backward(w, x, dz) computes gradients given output gradient dz.
-// dW = dz · x^T, db = column sums of dz, dx = w^T · dz.
-// Returns (dW, db, dx, bool). false on dimension mismatch.
+// dW = dz · x^T, db = row sums of dz, dx = w^T · dz.
+// Bias convention matches dense_forward: b is rows x 1, so db is one scalar
+// per row (per neuron). Returns (dW, db, dx, bool). false on dimension mismatch.
 fn dense_backward(w: const Mat&, x: const Mat&, dz: const Mat&) -> Mat, f64[>..], Mat, bool {
-	var xt = transpose(x);
-	var dw, dok = matmul(dz, xt);
-	if !dok { return Mat { rows: 0, cols: 0, data: [] }, [], Mat { rows: 0, cols: 0, data: [] }, false; }
-	var db = mat_sum_cols(dz);
-	var wt = transpose(w);
-	var dx, dok2 = matmul(wt, dz);
-	if !dok2 { return Mat { rows: 0, cols: 0, data: [] }, [], Mat { rows: 0, cols: 0, data: [] }, false; }
-	return dw, db, dx, true;
+    var xt = transpose(x);
+    var dw, dok = matmul(dz, xt);
+    if !dok { return Mat { rows: 0, cols: 0, data: [] }, [], Mat { rows: 0, cols: 0, data: [] }, false; }
+    var db = mat_sum_rows(dz);
+    var wt = transpose(w);
+    var dx, dok2 = matmul(wt, dz);
+    if !dok2 { return Mat { rows: 0, cols: 0, data: [] }, [], Mat { rows: 0, cols: 0, data: [] }, false; }
+    return dw, db, dx, true;
 }
 
 // --- loss functions ---------------------------------------------------------
@@ -361,7 +362,7 @@ fn mat_acc(pred: const Mat&, target: const Mat&) -> f64, bool {
 		var pred_bit = if p > 0.5 { 1.0 } else { 0.0 };
 		if pred_bit == target.data[t] { correct = correct + 1.0; }
 	}
-	return correct / total as f64, true;
+	return correct / total, true;
 }
 
 // --- weight initialization --------------------------------------------------
@@ -369,7 +370,7 @@ fn mat_acc(pred: const Mat&, target: const Mat&) -> f64, bool {
 // mat_xavier_init(rows, cols) returns a matrix initialized with Xavier/Glorot
 // uniform: U[-limit, limit] where limit = sqrt(6 / (rows + cols)).
 fn mat_xavier_init(rows: u64, cols: u64) -> Mat {
-	var limit = sqrt(6.0 / (rows + cols) as f64);
+	var limit = sqrt(6.0 / (rows + cols));
 	var r = rng { random_seed() };
 	var data: f64[>..] = [];
 	for t in rows * cols {
@@ -382,7 +383,7 @@ fn mat_xavier_init(rows: u64, cols: u64) -> Mat {
 // mat_he_init(rows, cols) returns a matrix initialized with He uniform:
 // U[-limit, limit] where limit = sqrt(6 / rows).
 fn mat_he_init(rows: u64, cols: u64) -> Mat {
-	var limit = sqrt(6.0 / rows as f64);
+	var limit = sqrt(6.0 / rows);
 	var r = rng { random_seed() };
 	var data: f64[>..] = [];
 	for t in rows * cols {
@@ -466,14 +467,18 @@ fn layer_forward(weights: const Mat&[:], biases: const Mat&[:], x: Mat&) -> Mat,
 }
 
 // --- dense forward ----------------------------------------------------------
+// dense_forward(w, x, b) computes z = w @ x + b.
+// Bias convention: b is a rows x 1 column vector. b.data[i] is added to every
+// element in row i (one scalar per output neuron, broadcast across all samples).
+// Returns (zero Mat, false) if a.cols != b.rows or b.rows != z.rows or b.cols != 1.
 fn dense_forward(w: const Mat&, x: const Mat&, b: const Mat&) -> Mat, bool {
     var z, ok = matmul(w, x);
     if !ok { return Mat { rows: 0, cols: 0, data: [] }, false; }
-    if b.rows != 1 || b.cols != z.cols { return Mat { rows: 0, cols: 0, data: [] }, false; }
+    if b.rows != z.rows || b.cols != 1 { return Mat { rows: 0, cols: 0, data: [] }, false; }
     for i in z.rows {
         for j in z.cols {
             let base = i * z.cols + j;
-            z.data[base] = z.data[base] + b.data[j];
+            z.data[base] = z.data[base] + b.data[i];
         }
     }
     return z, true;

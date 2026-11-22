@@ -21,19 +21,28 @@ fn mat_tanh(m: matrix::Mat&) {
 	matrix::mat_map(m) { x => tanh(x) };
 }
 
-// mat_softmax_rows(m) applies row-wise softmax in place: exp each element,
-// then divide by its row sum. Returns false if any row sum is zero.
-// Safe because exp(x) > 0 for all finite x, so every non-empty row sum is
-// strictly positive unless exp underflows to 0.0 for very negative inputs.
+// mat_softmax_rows(m) applies row-wise softmax in place: subtract row max,
+// exp each element, then divide by its row sum. Returns false if any row
+// sum is zero. Max-subtraction prevents exp overflow on large inputs.
 fn mat_softmax_rows(m: matrix::Mat&) -> bool {
-	matrix::mat_map(m) { x => exp(x) };
-	let sums = matrix::mat_sum_rows(m);
-	for i in m.rows {
-		if sums[i] == 0.0 { return false; }
-		for j in m.cols {
-			let base = i * m.cols + j;
-			m.data[base] = m.data[base] / sums[i];
-		}
-	}
-	return true;
+    for i in m.rows {
+        var max_val = m.data[i * m.cols];
+        for j in m.cols {
+            let base = i * m.cols + j;
+            if m.data[base] > max_val { max_val = m.data[base]; }
+        }
+        for j in m.cols {
+            let base = i * m.cols + j;
+            m.data[base] = exp(m.data[base] - max_val);
+        }
+    }
+    let sums = matrix::mat_sum_rows(m);
+    for i in m.rows {
+        if sums[i] == 0.0 { return false; }
+        for j in m.cols {
+            let base = i * m.cols + j;
+            m.data[base] = m.data[base] / sums[i];
+        }
+    }
+    return true;
 }
