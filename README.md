@@ -109,4 +109,4 @@ This is one bias per output neuron, matching the common convention.
 
 ## License
 
-None specified. Use at your own risk.
+MIT License. See LICENSE file.
